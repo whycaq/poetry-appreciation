@@ -1,242 +1,297 @@
 <template>
   <div class="home-view">
-    <!-- 顶部导航 -->
-    <header class="header">
-      <div class="container">
-        <div class="logo">
-          <h1>AI诗歌鉴赏</h1>
-        </div>
-        <nav class="nav">
-          <router-link to="/" class="nav-link">首页</router-link>
-          <router-link to="/poetry" class="nav-link">诗歌鉴赏</router-link>
-          <router-link to="/create" class="nav-link">AI创作</router-link>
-        </nav>
+    <!-- Hero Section -->
+    <section class="hero-section"
+      style="background-image: url('https://ai-public.mastergo.com/ai/img_res/df5b4ab55badfbd2d7311d233ab8f975.jpg');">
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <h1 class="hero-title">
+          山重水复疑无路，柳暗花明又一村
+        </h1>
+        <p class="hero-description">
+          探索千年诗词之美，感受古人情怀之深。在这里，每一首诗都是一个故事，每一个词都承载着历史的记忆。
+        </p>
+        <button class="hero-button">
+          开始探索
+        </button>
       </div>
-    </header>
+    </section>
 
-    <!-- 主要内容 -->
-    <main class="main">
-      <div class="hero-section">
-        <div class="container">
-          <h2 class="hero-title">探索诗歌的无限可能</h2>
-          <p class="hero-description">
-            基于人工智能的诗歌鉴赏与创作平台，让您感受古典诗词的魅力，体验现代科技的创新。
-          </p>
-          <div class="hero-actions">
-            <el-button type="primary" size="large" @click="goToPoetryList">
-              开始鉴赏
-            </el-button>
-            <el-button size="large" @click="goToCreate">
-              AI创作
-            </el-button>
+    <!-- Poetry Categories -->
+    <section class="categories-section">
+      <div class="section-container">
+        <h2 class="section-title">诗词分类</h2>
+        <div class="categories-grid">
+          <div class="category-card">
+            <div class="category-image">
+              <img src="https://ai-public.mastergo.com/ai/img_res/6cef988e86519aeee312b949c3c77f80.jpg"
+                alt="唐诗" class="category-img">
+            </div>
+            <div class="category-content">
+              <h3 class="category-title">唐诗</h3>
+              <p class="category-description">盛唐气象，诗中有画，画中有诗</p>
+            </div>
+          </div>
+          <div class="category-card">
+            <div class="category-image">
+              <img src="https://ai-public.mastergo.com/ai/img_res/366643f2817681373d9f22ee88d7d419.jpg"
+                alt="宋词" class="category-img">
+            </div>
+            <div class="category-content">
+              <h3 class="category-title">宋词</h3>
+              <p class="category-description">婉约豪放并存，情致深远</p>
+            </div>
+          </div>
+          <div class="category-card">
+            <div class="category-image">
+              <img src="https://ai-public.mastergo.com/ai/img_res/2e7425258b29069ccb11441db8c4f5ec.jpg"
+                alt="元曲" class="category-img">
+            </div>
+            <div class="category-content">
+              <h3 class="category-title">元曲</h3>
+              <p class="category-description">民间艺术精华，通俗而深刻</p>
+            </div>
+          </div>
+          <div class="category-card">
+            <div class="category-image">
+              <img src="https://ai-public.mastergo.com/ai/img_res/b79358797d23ee092612a1aea57b353b.jpg"
+                alt="古风" class="category-img">
+            </div>
+            <div class="category-content">
+              <h3 class="category-title">古风</h3>
+              <p class="category-description">承古韵之雅，创新意之妙</p>
+            </div>
           </div>
         </div>
       </div>
+    </section>
 
-      <!-- 功能特色 -->
-      <section class="features-section">
-        <div class="container">
-          <h3 class="section-title">平台特色</h3>
-          <div class="features-grid">
-            <div class="feature-card">
-              <el-icon class="feature-icon"><Reading /></el-icon>
-              <h4>诗歌鉴赏</h4>
-              <p>丰富的古典诗歌库，包含详细的注释和赏析</p>
+    <!-- Popular Poems -->
+    <section class="popular-section">
+      <div class="section-container">
+        <div class="section-header">
+          <h2 class="section-title">热门诗词推荐</h2>
+          <router-link to="/poetry" class="view-more-link">查看更多</router-link>
+        </div>
+        <Swiper
+          :modules="swiperModules"
+          :slides-per-view="1"
+          :space-between="20"
+          :breakpoints="{
+            640: { slidesPerView: 2 },
+            1024: { slidesPerView: 3 }
+          }"
+          :pagination="{ clickable: true }"
+          :autoplay="{ delay: 5000 }"
+          class="popular-swiper"
+        >
+          <SwiperSlide v-for="poem in popularPoems" :key="poem.id">
+            <div class="poem-card">
+              <div class="poem-header">
+                <h3 class="poem-title">{{ poem.title }}</h3>
+                <span class="poem-dynasty">{{ poem.dynasty }}</span>
+              </div>
+              <p class="poem-author">{{ poem.author }}</p>
+              <p class="poem-excerpt">"{{ poem.excerpt }}"</p>
+              <div class="poem-footer">
+                <span class="poem-likes">{{ poem.likes }} 赞</span>
+                <button class="view-details-btn" @click="handleLikePoem(poem.id)">点赞</button>
+              </div>
             </div>
-            <div class="feature-card">
-              <el-icon class="feature-icon"><Edit /></el-icon>
-              <h4>AI创作</h4>
-              <p>智能生成符合格律的诗歌，支持多种风格选择</p>
-            </div>
-            <div class="feature-card">
-              <el-icon class="feature-icon"><Search /></el-icon>
-              <h4>智能搜索</h4>
-              <p>快速找到您感兴趣的诗歌和作者</p>
-            </div>
-            <div class="feature-card">
-              <el-icon class="feature-icon"><Collection /></el-icon>
-              <h4>个人收藏</h4>
-              <p>收藏喜欢的诗歌，创建个人诗集</p>
+          </SwiperSlide>
+        </Swiper>
+      </div>
+    </section>
+
+    <!-- Poetry Creation -->
+    <section class="creation-section">
+      <div class="section-container">
+        <div class="creation-banner">
+          <div class="creation-content">
+            <h2 class="creation-title">诗词创作互动</h2>
+            <p class="creation-description">
+              今日诗题：<span class="poem-topic">秋思</span><br>
+              秋风萧瑟天气凉，草木摇落露为霜。请以"秋思"为主题创作一首诗词。
+            </p>
+            <div class="creation-buttons">
+              <router-link to="/create" class="primary-button">
+                我要写诗
+              </router-link>
+              <button class="secondary-button">
+                查看作品
+              </button>
             </div>
           </div>
         </div>
-      </section>
-    </main>
-
-    <!-- 页脚 -->
-    <footer class="footer">
-      <div class="container">
-        <p>&copy; 2024 AI诗歌鉴赏平台. 保留所有权利.</p>
       </div>
-    </footer>
+    </section>
+
+    <!-- Poetry Games -->
+    <section class="games-section">
+      <div class="section-container">
+        <h2 class="section-title">诗词小游戏</h2>
+        <div class="game-card">
+          <div class="game-content">
+            <div class="game-info">
+              <h3 class="game-title">飞花令</h3>
+              <p class="game-description">古代文人雅士行酒令时的文字游戏，以"花"字为令，说出含有此字的诗句。</p>
+              <div class="game-rules">
+                <h4 class="rules-title">游戏规则</h4>
+                <ul class="rules-list">
+                  <li>轮流说出含有"花"字的诗句</li>
+                  <li>诗句不能重复</li>
+                  <li>限时 30 秒作答</li>
+                  <li>答错或超时则淘汰</li>
+                </ul>
+              </div>
+              <div class="game-buttons">
+                <button class="primary-button" @click="showGameModal = true">开始游戏</button>
+                <button class="secondary-button">查看排行榜</button>
+              </div>
+            </div>
+            <div class="game-display">
+              <div class="game-token">
+                <div class="token-label">令字</div>
+                <div class="token-character">花</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 诗词游戏模态框 -->
+  <div v-if="showGameModal" class="modal-overlay" @click="showGameModal = false">
+    <div class="modal-content large" @click.stop>
+      <button class="close-modal" @click="showGameModal = false">×</button>
+      <PoetryGame />
+    </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { useRouter } from 'vue-router'
+<script lang="ts" setup>
+import { ref, onMounted } from 'vue';
+import { Swiper, SwiperSlide } from 'swiper/vue';
+import { Pagination, Autoplay } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/pagination';
+import { getPopularPoems, likePoem, type Poem } from '../api/poetry';
+import PoetryGame from '../components/PoetryGame.vue';
 
-const router = useRouter()
+const swiperModules = [Pagination, Autoplay];
 
-const goToPoetryList = () => {
-  router.push('/poetry')
-}
+// 动态热门诗词数据
+const popularPoems = ref<Poem[]>([]);
+const isLoading = ref(true);
+const showGameModal = ref(false);
 
-const goToCreate = () => {
-  router.push('/create')
-}
+// 加载热门诗词
+const loadPopularPoems = async () => {
+  isLoading.value = true;
+  try {
+    const poems = await getPopularPoems(8);
+    popularPoems.value = poems;
+  } catch (error) {
+    console.error('加载热门诗词失败:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// 点赞诗词
+const handleLikePoem = async (poemId: string) => {
+  try {
+    await likePoem(poemId);
+    // 更新本地数据
+    const poem = popularPoems.value.find(p => p.id === poemId);
+    if (poem) {
+      poem.likes += 1;
+    }
+  } catch (error) {
+    console.error('点赞失败:', error);
+  }
+};
+
+onMounted(() => {
+  loadPopularPoems();
+});
 </script>
 
 <style scoped>
 .home-view {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
+.popular-swiper {
+  padding-bottom: 40px;
 }
 
-/* 头部样式 */
-.header {
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  position: sticky;
+.popular-swiper ::v-deep(.swiper-pagination-bullet) {
+  background-color: #3b82f6;
+  opacity: 1;
+}
+
+.popular-swiper ::v-deep(.swiper-pagination-bullet-active) {
+  background-color: #2563eb;
+}
+
+.modal-overlay {
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 1000;
 }
 
-.header .container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 20px;
-}
-
-.logo h1 {
-  color: #409eff;
-  font-size: 1.5rem;
-  margin: 0;
-}
-
-.nav {
-  display: flex;
-  gap: 2rem;
-}
-
-.nav-link {
-  color: #666;
-  font-weight: 500;
-  transition: color 0.3s;
-}
-
-.nav-link:hover,
-.nav-link.router-link-active {
-  color: #409eff;
-}
-
-/* 英雄区域样式 */
-.hero-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 6rem 0;
-  text-align: center;
-  flex: 1;
-}
-
-.hero-title {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  font-weight: 700;
-}
-
-.hero-description {
-  font-size: 1.2rem;
-  margin-bottom: 2rem;
-  opacity: 0.9;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-}
-
-/* 功能特色样式 */
-.features-section {
-  padding: 4rem 0;
-  background: #f8f9fa;
-}
-
-.section-title {
-  text-align: center;
-  font-size: 2rem;
-  margin-bottom: 3rem;
-  color: #333;
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 2rem;
-}
-
-.feature-card {
+.modal-content {
   background: white;
   padding: 2rem;
-  border-radius: 8px;
-  text-align: center;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
+  border-radius: 0.5rem;
+  position: relative;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
-.feature-card:hover {
-  transform: translateY(-5px);
+.modal-content.large {
+  max-width: 800px;
 }
 
-.feature-icon {
-  font-size: 3rem;
-  color: #409eff;
-  margin-bottom: 1rem;
+.close-modal {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6b7280;
 }
 
-.feature-card h4 {
-  font-size: 1.2rem;
-  margin-bottom: 1rem;
-  color: #333;
+.close-modal:hover {
+  color: #374151;
 }
 
-.feature-card p {
-  color: #666;
-  line-height: 1.6;
-}
-
-/* 页脚样式 */
-.footer {
-  background: #333;
+.primary-button {
+  text-decoration: none;
   color: white;
-  text-align: center;
-  padding: 2rem 0;
-  margin-top: auto;
+  padding: 12px 24px;
+  border-radius: 8px;
+  background-color: #3b82f6;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
 }
 
-@media (max-width: 768px) {
-  .hero-title {
-    font-size: 2rem;
-  }
-  
-  .hero-actions {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .nav {
-    gap: 1rem;
-  }
+.primary-button:hover {
+  background-color: #2563eb;
 }
 </style>

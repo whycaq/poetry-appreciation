@@ -56,16 +56,29 @@
           >
             <div class="poetry-header">
               <h3 class="poetry-title">{{ poetry.title }}</h3>
-              <el-tag type="info" size="small">{{ poetry.dynasty }}</el-tag>
+              <div class="header-tags">
+                <el-tag v-if="poetry.is_featured" type="danger" size="small">精选</el-tag>
+                <el-tag type="info" size="small">{{ poetry.dynasty }}</el-tag>
+              </div>
             </div>
             <p class="poetry-author">{{ poetry.author }}</p>
             <div class="poetry-content">
               {{ formatPoetryPreview(poetry.content) }}
             </div>
+            
+            <!-- 🌟 赏析预览（新增） -->
+            <div v-if="poetry.appreciation" class="appreciation-preview">
+              <span class="preview-label">💭 赏析：</span>
+              <span class="preview-text">{{ formatAppreciationPreview(poetry.appreciation) }}</span>
+            </div>
+            
             <div class="poetry-footer">
-              <span class="poetry-date">{{ formatDate(poetry.createdAt) }}</span>
+              <div class="poetry-stats">
+                <span class="poetry-likes">❤️ {{ poetry.likes }}</span>
+                <span class="poetry-views">👁️ {{ poetry.views }}</span>
+              </div>
               <el-button link type="primary" size="small">
-                查看详情
+                <strong>深度赏析 →</strong>
               </el-button>
             </div>
           </div>
@@ -92,13 +105,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import type { Poetry, PoetryQueryParams } from '@/types'
-import { formatDate, getDynastyOptions } from '@/utils'
+import { getPopularPoems, searchPoems, getPoemsByDynasty, type Poem } from '../api/poetry'
 
 const router = useRouter()
 
 // 响应式数据
-const poetryList = ref<Poetry[]>([])
+const poetryList = ref<Poem[]>([])
 const loading = ref(false)
 const searchKeyword = ref('')
 const selectedDynasty = ref('')
@@ -106,7 +118,15 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
-const dynastyOptions = getDynastyOptions()
+const dynastyOptions = [
+  { value: '唐朝', label: '唐朝' },
+  { value: '宋朝', label: '宋朝' },
+  { value: '元朝', label: '元朝' },
+  { value: '明朝', label: '明朝' },
+  { value: '清朝', label: '清朝' },
+  { value: '汉朝', label: '汉朝' },
+  { value: '魏晋', label: '魏晋' }
+]
 
 // 格式化诗歌预览
 const formatPoetryPreview = (content: string): string => {
@@ -114,8 +134,20 @@ const formatPoetryPreview = (content: string): string => {
   return lines.join('，') + '...'
 }
 
+// 格式化赏析预览（新增）
+const formatAppreciationPreview = (appreciation: string): string => {
+  if (!appreciation) return ''
+  const firstSentence = appreciation.split('。')[0]
+  return firstSentence.length > 60 ? firstSentence.substring(0, 60) + '...' : firstSentence + '。'
+}
+
+// 格式化日期
+const formatDate = (dateString: string): string => {
+  return new Date(dateString).toLocaleDateString('zh-CN')
+}
+
 // 查看诗歌详情
-const viewPoetryDetail = (id: number) => {
+const viewPoetryDetail = (id: string) => {
   router.push(`/poetry/${id}`)
 }
 
@@ -153,33 +185,23 @@ const refreshList = () => {
 const fetchPoetryList = async () => {
   loading.value = true
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    const offset = (currentPage.value - 1) * pageSize.value
+    let result: { data: Poem[], count: number }
     
-    // 模拟数据
-    poetryList.value = [
-      {
-        id: 1,
-        title: '静夜思',
-        author: '李白',
-        dynasty: '唐朝',
-        content: '床前明月光，疑是地上霜。举头望明月，低头思故乡。',
-        tags: ['思乡', '月亮'],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z'
-      },
-      {
-        id: 2,
-        title: '春晓',
-        author: '孟浩然',
-        dynasty: '唐朝',
-        content: '春眠不觉晓，处处闻啼鸟。夜来风雨声，花落知多少。',
-        tags: ['春天', '自然'],
-        createdAt: '2024-01-02T00:00:00Z',
-        updatedAt: '2024-01-02T00:00:00Z'
-      }
-    ]
-    total.value = 2
+    if (searchKeyword.value) {
+      // 搜索诗词
+      result = await searchPoems(searchKeyword.value, pageSize.value, offset)
+    } else if (selectedDynasty.value) {
+      // 按朝代筛选
+      result = await getPoemsByDynasty(selectedDynasty.value, pageSize.value, offset)
+    } else {
+      // 获取热门诗词
+      result = await getPopularPoems(pageSize.value, offset)
+    }
+    
+    poetryList.value = result.data
+    total.value = result.count
+    
   } catch (error) {
     ElMessage.error('获取诗歌列表失败')
     console.error('Error fetching poetry list:', error)
@@ -270,17 +292,50 @@ onMounted(() => {
   margin-bottom: 0.5rem;
 }
 
+.header-tags {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .poetry-title {
   margin: 0;
   font-size: 1.2rem;
   color: #333;
   line-height: 1.4;
+  flex: 1;
 }
 
 .poetry-author {
   color: #666;
   margin-bottom: 1rem;
   font-size: 0.9rem;
+}
+
+/* 🌟 赏析预览区域 */
+.appreciation-preview {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  border-left: 3px solid #f59e0b;
+}
+
+.preview-label {
+  font-weight: 600;
+  color: #d97706;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
+.preview-text {
+  color: #92400e;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  font-style: italic;
 }
 
 .poetry-content {
@@ -302,9 +357,17 @@ onMounted(() => {
   border-top: 1px solid #f0f0f0;
 }
 
-.poetry-date {
+.poetry-stats {
+  display: flex;
+  gap: 1rem;
   font-size: 0.8rem;
   color: #999;
+}
+
+.poetry-likes, .poetry-views {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 /* 分页样式 */

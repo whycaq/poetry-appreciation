@@ -10,61 +10,35 @@
         <button 
           v-for="category in categories" 
           :key="category.id"
-          :class="['tab-button', { active: activeCategory === category.id }]"
-          @click="activeCategory = category.id"
+          :class="['tab-button', { active: activeCategory === category.name }]"
+          @click="activeCategory = category.name"
         >
-          {{ category.name }}
+          <span class="category-icon">{{ category.icon_url }}</span> {{ category.name }}
         </button>
       </div>
 
       <div class="category-content">
-        <div v-if="activeCategory === 'tang'" class="category-detail">
-          <h2>唐诗</h2>
-          <p>唐代是中国古典诗歌的黄金时代，涌现出李白、杜甫、白居易等众多杰出诗人。</p>
-          <div class="poems-grid">
-            <div v-for="poem in tangPoems" :key="poem.id" class="poem-card">
-              <h3>{{ poem.title }}</h3>
-              <p class="author">{{ poem.author }}</p>
-              <p class="excerpt">{{ poem.excerpt }}</p>
-              <button @click="viewPoemDetail(poem.id)" class="read-btn">阅读全文</button>
-            </div>
+        <div v-if="activeCategory" class="category-detail">
+          <h2>{{ activeCategory }}</h2>
+          <p>{{ categories.find(c => c.name === activeCategory)?.description || '探索经典诗词之美' }}</p>
+          
+          <div v-if="loading" class="loading-state">
+            <p>加载中...</p>
           </div>
-        </div>
 
-        <div v-if="activeCategory === 'song'" class="category-detail">
-          <h2>宋词</h2>
-          <p>宋代词作婉约与豪放并存，苏轼、李清照、辛弃疾等词人各领风骚。</p>
-          <div class="poems-grid">
-            <div v-for="poem in songPoems" :key="poem.id" class="poem-card">
-              <h3>{{ poem.title }}</h3>
-              <p class="author">{{ poem.author }}</p>
-              <p class="excerpt">{{ poem.excerpt }}</p>
-              <button @click="viewPoemDetail(poem.id)" class="read-btn">阅读全文</button>
-            </div>
+          <div v-else-if="poems.length === 0" class="empty-state">
+            <p>暂无诗词数据</p>
           </div>
-        </div>
 
-        <div v-if="activeCategory === 'yuan'" class="category-detail">
-          <h2>元曲</h2>
-          <p>元代戏曲文学的代表，语言通俗，情感真挚，贴近民间生活。</p>
-          <div class="poems-grid">
-            <div v-for="poem in yuanPoems" :key="poem.id" class="poem-card">
+          <div v-else class="poems-grid">
+            <div v-for="poem in poems" :key="poem.id" class="poem-card">
               <h3>{{ poem.title }}</h3>
-              <p class="author">{{ poem.author }}</p>
+              <p class="author">{{ poem.author }} · {{ poem.dynasty }}</p>
               <p class="excerpt">{{ poem.excerpt }}</p>
-              <button @click="viewPoemDetail(poem.id)" class="read-btn">阅读全文</button>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="activeCategory === 'modern'" class="category-detail">
-          <h2>现代诗</h2>
-          <p>现当代诗人的创新之作，形式自由，意境深远。</p>
-          <div class="poems-grid">
-            <div v-for="poem in modernPoems" :key="poem.id" class="poem-card">
-              <h3>{{ poem.title }}</h3>
-              <p class="author">{{ poem.author }}</p>
-              <p class="excerpt">{{ poem.excerpt }}</p>
+              <div class="poem-stats">
+                <span>❤️ {{ poem.likes }}</span>
+                <span>👁️ {{ poem.views }}</span>
+              </div>
               <button @click="viewPoemDetail(poem.id)" class="read-btn">阅读全文</button>
             </div>
           </div>
@@ -75,39 +49,56 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { getCategories, getPoemsByCategory, type Poem } from '../api/poetry'
 
-const activeCategory = ref('tang')
+const router = useRouter()
+const activeCategory = ref('')
+const categories = ref<any[]>([])
+const poems = ref<Poem[]>([])
+const loading = ref(true)
 
-const categories = [
-  { id: 'tang', name: '唐诗' },
-  { id: 'song', name: '宋词' },
-  { id: 'yuan', name: '元曲' },
-  { id: 'modern', name: '现代诗' }
-]
-
-const tangPoems = [
-  { id: 1, title: '静夜思', author: '李白', excerpt: '床前明月光，疑是地上霜。' },
-  { id: 2, title: '春晓', author: '孟浩然', excerpt: '春眠不觉晓，处处闻啼鸟。' },
-  { id: 3, title: '登鹳雀楼', author: '王之涣', excerpt: '白日依山尽，黄河入海流。' }
-]
-
-const songPoems = [
-  { id: 4, title: '水调歌头', author: '苏轼', excerpt: '明月几时有，把酒问青天。' },
-  { id: 5, title: '声声慢', author: '李清照', excerpt: '寻寻觅觅，冷冷清清，凄凄惨惨戚戚。' }
-]
-
-const yuanPoems = [
-  { id: 6, title: '天净沙·秋思', author: '马致远', excerpt: '枯藤老树昏鸦，小桥流水人家。' }
-]
-
-const modernPoems = [
-  { id: 7, title: '再别康桥', author: '徐志摩', excerpt: '轻轻的我走了，正如我轻轻的来。' }
-]
-
-const viewPoemDetail = (id: number) => {
-  console.log('查看诗词详情:', id)
+// 加载分类数据
+const loadCategories = async () => {
+  try {
+    const categoryData = await getCategories()
+    categories.value = categoryData
+    if (categoryData.length > 0) {
+      activeCategory.value = categoryData[0].name
+    }
+  } catch (error) {
+    console.error('加载分类失败:', error)
+  }
 }
+
+// 加载诗词数据
+const loadPoems = async (category: string) => {
+  loading.value = true
+  try {
+    const result = await getPoemsByCategory(category, 20, 0)
+    poems.value = result.data
+  } catch (error) {
+    console.error('加载诗词失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 当分类变化时加载诗词
+watch(activeCategory, (newCategory) => {
+  if (newCategory) {
+    loadPoems(newCategory)
+  }
+})
+
+const viewPoemDetail = (id: string) => {
+  router.push(`/poetry/${id}`)
+}
+
+onMounted(async () => {
+  await loadCategories()
+})
 </script>
 
 <style scoped>
@@ -149,6 +140,13 @@ const viewPoemDetail = (id: number) => {
   color: #6b7280;
   border-bottom: 3px solid transparent;
   transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.category-icon {
+  font-size: 1.2rem;
 }
 
 .tab-button.active {
@@ -213,6 +211,25 @@ const viewPoemDetail = (id: number) => {
   color: #6b7280;
   line-height: 1.6;
   margin-bottom: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.poem-stats {
+  display: flex;
+  gap: 1rem;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.loading-state,
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+  font-size: 1.1rem;
 }
 
 .read-btn {
@@ -223,6 +240,7 @@ const viewPoemDetail = (id: number) => {
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.3s;
+  width: 100%;
 }
 
 .read-btn:hover {

@@ -11,9 +11,9 @@
         <p class="hero-description">
           探索千年诗词之美，感受古人情怀之深。在这里，每一首诗都是一个故事，每一个词都承载着历史的记忆。
         </p>
-        <button class="hero-button">
+        <router-link to="/poetry" class="hero-button">
           开始探索
-        </button>
+        </router-link>
       </div>
     </section>
 
@@ -22,47 +22,30 @@
       <div class="section-container">
         <h2 class="section-title">诗词分类</h2>
         <div class="categories-grid">
-          <div class="category-card">
+          <div 
+            v-for="category in categories" 
+            :key="category.id" 
+            class="category-card"
+            @click="goToCategory(category.name)"
+          >
             <div class="category-image">
-              <img src="https://ai-public.mastergo.com/ai/img_res/6cef988e86519aeee312b949c3c77f80.jpg"
-                alt="唐诗" class="category-img">
+              <img :src="getDefaultCategoryImage(category.name)" 
+                   :alt="category.name" class="category-img">
             </div>
             <div class="category-content">
-              <h3 class="category-title">唐诗</h3>
-              <p class="category-description">盛唐气象，诗中有画，画中有诗</p>
-            </div>
-          </div>
-          <div class="category-card">
-            <div class="category-image">
-              <img src="https://ai-public.mastergo.com/ai/img_res/366643f2817681373d9f22ee88d7d419.jpg"
-                alt="宋词" class="category-img">
-            </div>
-            <div class="category-content">
-              <h3 class="category-title">宋词</h3>
-              <p class="category-description">婉约豪放并存，情致深远</p>
-            </div>
-          </div>
-          <div class="category-card">
-            <div class="category-image">
-              <img src="https://ai-public.mastergo.com/ai/img_res/2e7425258b29069ccb11441db8c4f5ec.jpg"
-                alt="元曲" class="category-img">
-            </div>
-            <div class="category-content">
-              <h3 class="category-title">元曲</h3>
-              <p class="category-description">民间艺术精华，通俗而深刻</p>
-            </div>
-          </div>
-          <div class="category-card">
-            <div class="category-image">
-              <img src="https://ai-public.mastergo.com/ai/img_res/b79358797d23ee092612a1aea57b353b.jpg"
-                alt="古风" class="category-img">
-            </div>
-            <div class="category-content">
-              <h3 class="category-title">古风</h3>
-              <p class="category-description">承古韵之雅，创新意之妙</p>
+              <div class="category-icon">{{ category.icon_url }}</div>
+              <h3 class="category-title">{{ category.name }}</h3>
+              <p class="category-description">{{ category.description || '探索经典诗词之美' }}</p>
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- Daily Recommendation -->
+    <section class="daily-section">
+      <div class="section-container">
+        <DailyRecommendation />
       </div>
     </section>
 
@@ -172,31 +155,64 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { Swiper, SwiperSlide } from 'swiper/vue';
 import { Pagination, Autoplay } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
-import { getPopularPoems, likePoem, type Poem } from '../api/poetry';
+import { getPopularPoems, likePoem, getCategories, type Poem } from '../api/poetry';
 import PoetryGame from '../components/PoetryGame.vue';
+import DailyRecommendation from '../components/DailyRecommendation.vue';
 
+const router = useRouter();
 const swiperModules = [Pagination, Autoplay];
 
 // 动态热门诗词数据
 const popularPoems = ref<Poem[]>([]);
+const categories = ref<any[]>([]);
 const isLoading = ref(true);
 const showGameModal = ref(false);
+
+// 加载分类数据
+const loadCategories = async () => {
+  try {
+    const categoryData = await getCategories();
+    categories.value = categoryData;
+  } catch (error) {
+    console.error('加载分类数据失败:', error);
+  }
+};
 
 // 加载热门诗词
 const loadPopularPoems = async () => {
   isLoading.value = true;
   try {
-    const poems = await getPopularPoems(8);
-    popularPoems.value = poems;
+    const result = await getPopularPoems(8, 0);
+    popularPoems.value = result.data;
   } catch (error) {
     console.error('加载热门诗词失败:', error);
   } finally {
     isLoading.value = false;
   }
+};
+
+// 获取默认分类图片
+const getDefaultCategoryImage = (categoryName: string): string => {
+  const imageMap: Record<string, string> = {
+    '唐诗': 'https://ai-public.mastergo.com/ai/img_res/6cef988e86519aeee312b949c3c77f80.jpg',
+    '宋词': 'https://ai-public.mastergo.com/ai/img_res/366643f2817681373d9f22ee88d7d419.jpg',
+    '元曲': 'https://ai-public.mastergo.com/ai/img_res/2e7425258b29069ccb11441db8c4f5ec.jpg',
+    '诗经': 'https://ai-public.mastergo.com/ai/img_res/b79358797d23ee092612a1aea57b353b.jpg',
+    '楚辞': 'https://ai-public.mastergo.com/ai/img_res/6cef988e86519aeee312b949c3c77f80.jpg',
+    '乐府': 'https://ai-public.mastergo.com/ai/img_res/366643f2817681373d9f22ee88d7d419.jpg',
+    '近现代诗': 'https://ai-public.mastergo.com/ai/img_res/2e7425258b29069ccb11441db8c4f5ec.jpg'
+  };
+  return imageMap[categoryName] || 'https://ai-public.mastergo.com/ai/img_res/6cef988e86519aeee312b949c3c77f80.jpg';
+};
+
+// 跳转到分类页面
+const goToCategory = (categoryName: string) => {
+  router.push('/poetry');
 };
 
 // 点赞诗词
@@ -214,6 +230,7 @@ const handleLikePoem = async (poemId: string) => {
 };
 
 onMounted(() => {
+  loadCategories();
   loadPopularPoems();
 });
 </script>
@@ -293,5 +310,10 @@ onMounted(() => {
 
 .primary-button:hover {
   background-color: #2563eb;
+}
+
+.daily-section {
+  padding: 4rem 0;
+  background: #f8f9fa;
 }
 </style>

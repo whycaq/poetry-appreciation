@@ -2,24 +2,37 @@
   <div class="poetry-detail-view">
     <div class="container">
       <div v-if="loading" class="loading-container">
-        <el-skeleton :rows="10" animated />
+        <div class="skeleton">
+          <div class="skeleton-line" v-for="n in 10" :key="n"></div>
+        </div>
       </div>
 
       <div v-else-if="poetry" class="poetry-detail">
         <!-- 返回按钮 -->
         <div class="back-button">
-          <el-button @click="goBack" type="primary" link>
-            <el-icon><ArrowLeft /></el-icon>
-            返回列表
-          </el-button>
+          <button @click="goBack" class="back-btn">
+            ← 返回列表
+          </button>
         </div>
 
         <!-- 诗歌基本信息 -->
         <div class="poetry-header">
+          <div class="header-badges">
+            <span v-if="poetry.is_featured" class="badge featured">精选</span>
+            <span class="badge difficulty">{{ difficultyText }}</span>
+          </div>
           <h1 class="poetry-title">{{ poetry.title }}</h1>
           <div class="poetry-meta">
             <span class="author">{{ poetry.author }}</span>
-            <el-tag type="primary">{{ poetry.dynasty }}</el-tag>
+            <span class="dynasty-badge">{{ poetry.dynasty }}</span>
+          </div>
+          <div class="poetry-stats">
+            <span class="stat-item">
+              👁️ {{ poetry.views || 0 }} 浏览
+            </span>
+            <span class="stat-item">
+              ⭐ {{ poetry.likes || 0 }} 点赞
+            </span>
           </div>
         </div>
 
@@ -36,71 +49,93 @@
 
         <!-- 标签 -->
         <div class="poetry-tags">
-          <el-tag
+          <span
             v-for="tag in poetry.tags"
             :key="tag"
-            type="info"
-            size="small"
+            class="tag"
           >
             {{ tag }}
-          </el-tag>
+          </span>
         </div>
 
-        <!-- 翻译和赏析 -->
-        <div class="poetry-sections">
-          <el-collapse v-model="activeNames">
-            <el-collapse-item title="诗歌翻译" name="translation">
-              <div v-if="poetry.translation" class="section-content">
-                {{ poetry.translation }}
-              </div>
-              <div v-else class="no-data">
-                暂无翻译内容
-              </div>
-            </el-collapse-item>
+        <!-- 🌟 赏析精华（醒目展示） -->
+        <div v-if="appreciationSummary" class="appreciation-highlight">
+          <div class="highlight-icon">✨</div>
+          <div class="highlight-content">
+            <h4>赏析精华</h4>
+            <p class="highlight-text">{{ appreciationSummary }}</p>
+          </div>
+        </div>
 
-            <el-collapse-item title="诗歌赏析" name="appreciation">
-              <div v-if="poetry.appreciation" class="section-content">
-                {{ poetry.appreciation }}
-              </div>
-              <div v-else class="no-data">
-                暂无赏析内容
-              </div>
-            </el-collapse-item>
-          </el-collapse>
+        <!-- 🎨 深度赏析（核心内容，默认展开） -->
+        <div v-if="poetry.appreciation" class="main-appreciation">
+          <div class="section-title">
+            <h3>
+              <span class="title-icon">🎨</span>
+              深度赏析
+            </h3>
+            <span class="reading-badge">精品阅读</span>
+          </div>
+          <div class="appreciation-content">
+            <p v-for="(paragraph, index) in appreciationParagraphs" :key="index" class="appreciation-paragraph">
+              {{ paragraph }}
+            </p>
+          </div>
+        </div>
+
+        <!-- 📖 诗词翻译（辅助内容，可折叠） -->
+        <div class="translation-section">
+          <div class="section-header" @click="showTranslation = !showTranslation">
+            <span>📖 现代翻译</span>
+            <span class="toggle-icon">{{ showTranslation ? '−' : '+' }}</span>
+          </div>
+          <div v-if="showTranslation" class="section-content">
+            <div v-if="poetry.translation">
+              {{ poetry.translation }}
+            </div>
+            <div v-else class="no-data">
+              暂无翻译内容
+            </div>
+          </div>
         </div>
 
         <!-- 操作按钮 -->
         <div class="action-buttons">
-          <el-button type="primary" @click="handleLike">
-            <el-icon><Star /></el-icon>
-            收藏
-          </el-button>
-          <el-button @click="handleShare">
-            <el-icon><Share /></el-icon>
-            分享
-          </el-button>
+          <button 
+            :class="['like-btn', isLiked ? 'liked' : '']" 
+            @click="handleLike"
+          >
+            {{ isLiked ? '❤️ 已点赞' : '🤍 点赞' }}
+          </button>
+          <button @click="handleShare" class="share-btn">
+            📤 分享
+          </button>
         </div>
       </div>
 
       <div v-else class="error-state">
-        <el-empty description="诗歌不存在或已被删除" />
+        <div class="empty-state">
+          <p>诗歌不存在或已被删除</p>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import type { Poetry } from '@/types'
+import { getPoemById, recordPoemView, toggleLike, checkUserLike, type Poem } from '../api/poetry'
+import { getCurrentUser } from '../api/user'
 
 const route = useRoute()
 const router = useRouter()
 
-const poetry = ref<Poetry | null>(null)
+const poetry = ref<any>(null)
 const loading = ref(false)
-const activeNames = ref(['translation', 'appreciation'])
+const isLiked = ref(false)
+const currentUserId = ref<string | null>(null)
+const showTranslation = ref(false) // 翻译默认折叠
 
 // 格式化诗歌内容
 const formattedContent = computed(() => {
@@ -108,58 +143,119 @@ const formattedContent = computed(() => {
   return poetry.value.content.split('\n').filter(line => line.trim())
 })
 
+// 获取难度等级文本
+const difficultyText = computed(() => {
+  const level = poetry.value?.difficulty_level || 1
+  const texts = ['', '入门', '初级', '中级', '高级', '专家']
+  return texts[level] || '入门'
+})
+
+// 赏析精华（从赏析中提取第一句或生成）
+const appreciationSummary = computed(() => {
+  if (!poetry.value?.appreciation) return ''
+  const text = poetry.value.appreciation
+  const firstSentence = text.split('。')[0]
+  return firstSentence.length > 50 ? firstSentence.substring(0, 50) + '...' : firstSentence + '。'
+})
+
+// 分段显示赏析内容
+const appreciationParagraphs = computed(() => {
+  if (!poetry.value?.appreciation) return []
+  return poetry.value.appreciation.split('。').filter(p => p.trim()).map(p => p + '。')
+})
+
 // 返回上一页
 const goBack = () => {
   router.back()
 }
 
-// 处理收藏
-const handleLike = () => {
-  ElMessage.success('已添加到收藏')
+// 切换章节显示
+const toggleSection = (section: keyof typeof activeSections) => {
+  activeSections[section] = !activeSections[section]
+}
+
+// 智能点赞/取消点赞
+const handleLike = async () => {
+  if (!currentUserId.value) {
+    alert('请先登录')
+    return
+  }
+  
+  if (!poetry.value?.id) return
+  
+  try {
+    const newStatus = await toggleLike(currentUserId.value, poetry.value.id)
+    isLiked.value = newStatus
+    
+    // 更新点赞数
+    if (newStatus) {
+      poetry.value.likes += 1
+      alert('点赞成功')
+    } else {
+      poetry.value.likes -= 1
+      alert('已取消点赞')
+    }
+  } catch (error) {
+    console.error('点赞失败:', error)
+    alert('点赞失败，请重试')
+  }
 }
 
 // 处理分享
 const handleShare = () => {
-  ElMessage.info('分享功能开发中')
+  alert('分享功能开发中')
+}
+
+// 检查用户登录状态
+const checkUserAuth = async () => {
+  try {
+    const user = await getCurrentUser()
+    if (user) {
+      currentUserId.value = user.id
+    }
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+  }
 }
 
 // 获取诗歌详情
 const fetchPoetryDetail = async () => {
-  const poetryId = parseInt(route.params.id as string)
+  const poetryId = route.params.id as string
   
-  if (isNaN(poetryId)) {
-    ElMessage.error('无效的诗歌ID')
+  if (!poetryId) {
+    alert('无效的诗歌ID')
     return
   }
 
   loading.value = true
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 800))
+    // 获取诗词详情
+    const poem = await getPoemById(poetryId)
     
-    // 模拟数据
-    poetry.value = {
-      id: poetryId,
-      title: '静夜思',
-      author: '李白',
-      dynasty: '唐朝',
-      content: '床前明月光，疑是地上霜。\n举头望明月，低头思故乡。',
-      translation: '明亮的月光洒在床前的窗户纸上，好像地上泛起了一层霜。我禁不住抬起头来，看那天窗外空中的一轮明月，不由得低头沉思，想起远方的家乡。',
-      appreciation: '这首诗写的是在寂静的月夜思念家乡的感受。诗的前两句，是写诗人在作客他乡的特定环境中一刹那间所产生的错觉。一个独处他乡的人，白天奔波忙碌，倒还能冲淡离愁，然而一到夜深人静的时候，心头就难免泛起阵阵思念故乡的波澜。',
-      tags: ['思乡', '月亮', '夜晚'],
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-01-01T00:00:00Z'
+    if (poem) {
+      poetry.value = poem
+      
+      // 使用新的浏览记录函数（支持登录用户）
+      await recordPoemView(poetryId, currentUserId.value || undefined)
+      
+      // 检查用户是否已点赞
+      if (currentUserId.value) {
+        isLiked.value = await checkUserLike(currentUserId.value, poetryId)
+      }
+    } else {
+      alert('诗歌不存在')
     }
   } catch (error) {
-    ElMessage.error('获取诗歌详情失败')
+    alert('获取诗歌详情失败')
     console.error('Error fetching poetry detail:', error)
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  fetchPoetryDetail()
+onMounted(async () => {
+  await checkUserAuth()
+  await fetchPoetryDetail()
 })
 </script>
 
@@ -176,10 +272,30 @@ onMounted(() => {
   padding: 0 20px;
 }
 
+/* 加载状态样式 */
 .loading-container {
   background: white;
   border-radius: 8px;
   padding: 2rem;
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeleton-line {
+  height: 20px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .poetry-detail {
@@ -193,11 +309,50 @@ onMounted(() => {
   margin-bottom: 2rem;
 }
 
+.back-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.back-btn:hover {
+  background: #2563eb;
+}
+
 .poetry-header {
   text-align: center;
   margin-bottom: 2rem;
   padding-bottom: 2rem;
   border-bottom: 1px solid #f0f0f0;
+}
+
+.header-badges {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.badge.featured {
+  background: #ef4444;
+  color: white;
+}
+
+.badge.difficulty {
+  background: #f59e0b;
+  color: white;
 }
 
 .poetry-title {
@@ -212,11 +367,35 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .author {
   font-size: 1.2rem;
   color: #666;
+}
+
+.dynasty-badge {
+  background: #3b82f6;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.poetry-stats {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 1rem;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .poetry-content {
@@ -239,22 +418,164 @@ onMounted(() => {
   gap: 0.5rem;
   justify-content: center;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
 }
 
-.poetry-sections {
+.tag {
+  background: #f3f4f6;
+  color: #6b7280;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+/* 🌟 赏析精华高亮区 */
+.appreciation-highlight {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 2rem;
+  color: white;
   margin-bottom: 2rem;
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.highlight-icon {
+  font-size: 3rem;
+  flex-shrink: 0;
+}
+
+.highlight-content h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.highlight-text {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.8;
+  font-weight: 500;
+}
+
+/* 🎨 主要赏析区域 */
+.main-appreciation {
+  background: white;
+  border-radius: 16px;
+  padding: 2.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border: 3px solid #e0e7ff;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 3px solid #3b82f6;
+}
+
+.section-title h3 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+
+.title-icon {
+  font-size: 2rem;
+}
+
+.reading-badge {
+  padding: 0.5rem 1rem;
+  background: #fef3c7;
+  color: #d97706;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.appreciation-content {
+  background: #fafafa;
+  padding: 2rem;
+  border-radius: 12px;
+}
+
+.appreciation-paragraph {
+  color: #333;
+  line-height: 2.2;
+  font-size: 1.05rem;
+  margin: 0 0 1.5rem 0;
+  text-indent: 2em;
+  letter-spacing: 0.5px;
+}
+
+.appreciation-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+/* 📖 翻译区域（次要，可折叠） */
+.translation-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #e5e7eb;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.5rem 0;
+  transition: color 0.3s;
+}
+
+.section-header:hover {
+  color: #3b82f6;
+}
+
+.toggle-icon {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #999;
 }
 
 .section-content {
-  line-height: 1.8;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f0f0f0;
   color: #555;
-  text-indent: 2em;
+  line-height: 1.8;
 }
 
 .no-data {
   text-align: center;
   color: #999;
   font-style: italic;
+  padding: 1rem 0;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .action-buttons {
@@ -263,11 +584,50 @@ onMounted(() => {
   justify-content: center;
 }
 
+.like-btn, .share-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.like-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.like-btn.liked {
+  background: #ef4444;
+}
+
+.like-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.share-btn {
+  background: #10b981;
+  color: white;
+}
+
+.share-btn:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
 .error-state {
   background: white;
   border-radius: 8px;
   padding: 4rem 2rem;
   text-align: center;
+}
+
+.empty-state {
+  color: #6b7280;
+  font-size: 1.1rem;
 }
 
 @media (max-width: 768px) {
@@ -281,6 +641,11 @@ onMounted(() => {
   
   .action-buttons {
     flex-direction: column;
+  }
+  
+  .poetry-meta {
+    flex-direction: column;
+    gap: 0.5rem;
   }
 }
 </style>

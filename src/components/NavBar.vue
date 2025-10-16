@@ -17,7 +17,7 @@
       </div>
       
       <div class="nav-user">
-        <UserAuth />
+        <UserAuth @show-login="emit('showLogin')" @show-signup="emit('showSignup')" />
       </div>
       
       <div class="mobile-menu">
@@ -41,6 +41,11 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 import UserAuth from './UserAuth.vue'
+
+const emit = defineEmits<{
+  showLogin: []
+  showSignup: []
+}>()
 
 const isMobileMenuOpen = ref(false)
 

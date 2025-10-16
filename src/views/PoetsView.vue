@@ -17,21 +17,28 @@
         </button>
       </div>
 
-      <div class="poets-grid">
+      <div v-if="loading" class="loading-state">
+        <p>加载中...</p>
+      </div>
+
+      <div v-else-if="filteredPoets.length === 0" class="empty-state">
+        <p>暂无诗人数据</p>
+      </div>
+
+      <div v-else class="poets-grid">
         <div v-for="poet in filteredPoets" :key="poet.id" class="poet-card">
           <div class="poet-image">
-            <img :src="poet.image" :alt="poet.name" />
+            <img :src="poet.image_url" :alt="poet.name" />
           </div>
           <div class="poet-info">
             <h2>{{ poet.name }}</h2>
-            <p class="dynasty">{{ poet.dynasty }}</p>
-            <p class="lifespan">{{ poet.lifespan }}</p>
-            <p class="description">{{ poet.description }}</p>
+            <p class="dynasty">{{ poet.dynasty }}代</p>
+            <p class="lifespan">{{ formatLifespan(poet) }}</p>
+            <p class="birth-place">{{ poet.birth_place }}</p>
+            <p class="description">{{ poet.biography }}</p>
             <div class="famous-works">
-              <h4>代表作品</h4>
-              <ul>
-                <li v-for="work in poet.famousWorks" :key="work">{{ work }}</li>
-              </ul>
+              <h4>作品数量</h4>
+              <p class="works-count">{{ poet.works_count }} 首</p>
             </div>
             <button @click="viewPoetDetail(poet.id)" class="detail-btn">查看详情</button>
           </div>
@@ -42,78 +49,56 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { getPoets, type Poet } from '../api/poetry'
 
-const activeDynasty = ref('tang')
+const router = useRouter()
+
+const activeDynasty = ref('all')
+const loading = ref(true)
+const allPoets = ref<Poet[]>([])
 
 const dynasties = [
-  { id: 'tang', name: '唐代诗人' },
-  { id: 'song', name: '宋代词人' },
-  { id: 'yuan', name: '元代曲家' },
-  { id: 'modern', name: '现代诗人' }
+  { id: 'all', name: '全部' },
+  { id: '唐', name: '唐代诗人' },
+  { id: '宋', name: '宋代词人' },
+  { id: '元', name: '元代曲家' }
 ]
 
-const poets = [
-  {
-    id: 1,
-    name: '李白',
-    dynasty: '唐代',
-    lifespan: '701年-762年',
-    image: 'https://ai-public.mastergo.com/ai/img_res/6cef988e86519aeee312b949c3c77f80.jpg',
-    description: '唐代伟大的浪漫主义诗人，被后人誉为"诗仙"。其诗豪放飘逸，想象丰富，语言流转自然，音律和谐多变。',
-    famousWorks: ['静夜思', '将进酒', '蜀道难', '望庐山瀑布']
-  },
-  {
-    id: 2,
-    name: '杜甫',
-    dynasty: '唐代',
-    lifespan: '712年-770年',
-    image: 'https://ai-public.mastergo.com/ai/img_res/366643f2817681373d9f22ee88d7d419.jpg',
-    description: '唐代伟大的现实主义诗人，被尊为"诗圣"。其诗沉郁顿挫，反映社会现实，具有深刻的思想性。',
-    famousWorks: ['春望', '登高', '茅屋为秋风所破歌', '三吏三别']
-  },
-  {
-    id: 3,
-    name: '苏轼',
-    dynasty: '宋代',
-    lifespan: '1037年-1101年',
-    image: 'https://ai-public.mastergo.com/ai/img_res/2e7425258b29069ccb11441db8c4f5ec.jpg',
-    description: '北宋文学家、书画家，豪放派词人的代表。其词题材广阔，清新豪健，独具风格。',
-    famousWorks: ['水调歌头', '念奴娇·赤壁怀古', '江城子·密州出猎', '定风波']
-  },
-  {
-    id: 4,
-    name: '李清照',
-    dynasty: '宋代',
-    lifespan: '1084年-1155年',
-    image: 'https://ai-public.mastergo.com/ai/img_res/b79358797d23ee092612a1aea57b353b.jpg',
-    description: '宋代著名女词人，婉约派代表。其词语言清丽，讲究音律，前期多写悠闲生活，后期多悲叹身世。',
-    famousWorks: ['声声慢', '如梦令', '醉花阴', '一剪梅']
-  },
-  {
-    id: 5,
-    name: '徐志摩',
-    dynasty: '现代',
-    lifespan: '1897年-1931年',
-    image: 'https://ai-public.mastergo.com/ai/img_res/6cef988e86519aeee312b949c3c77f80.jpg',
-    description: '现代诗人、散文家，新月派代表诗人。其诗字句清新，韵律谐和，比喻新奇，想象丰富。',
-    famousWorks: ['再别康桥', '翡冷翠的一夜', '我不知道风是在哪一个方向吹']
+// 加载诗人数据
+const loadPoets = async () => {
+  loading.value = true
+  try {
+    const poets = await getPoets()
+    allPoets.value = poets
+  } catch (error) {
+    console.error('加载诗人数据失败:', error)
+  } finally {
+    loading.value = false
   }
-]
+}
 
+// 筛选诗人
 const filteredPoets = computed(() => {
-  return poets.filter(poet => {
-    if (activeDynasty.value === 'tang') return poet.dynasty === '唐代'
-    if (activeDynasty.value === 'song') return poet.dynasty === '宋代'
-    if (activeDynasty.value === 'yuan') return poet.dynasty === '元代'
-    if (activeDynasty.value === 'modern') return poet.dynasty === '现代'
-    return true
-  })
+  if (activeDynasty.value === 'all') {
+    return allPoets.value
+  }
+  return allPoets.value.filter(poet => poet.dynasty === activeDynasty.value)
 })
 
-const viewPoetDetail = (id: number) => {
-  console.log('查看诗人详情:', id)
+// 格式化生卒年
+const formatLifespan = (poet: Poet) => {
+  return `${poet.birth_year}-${poet.death_year}`
 }
+
+const viewPoetDetail = (id: string) => {
+  router.push(`/poets/${id}`)
+}
+
+onMounted(() => {
+  loadPoets()
+})
 </script>
 
 <style scoped>
@@ -231,20 +216,26 @@ const viewPoetDetail = (id: number) => {
   margin-bottom: 0.5rem;
 }
 
-.famous-works ul {
-  list-style: none;
-  padding: 0;
+.birth-place {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  font-style: italic;
+}
+
+.works-count {
+  color: #3b82f6;
+  font-size: 1.1rem;
+  font-weight: 600;
   margin-bottom: 1.5rem;
 }
 
-.famous-works li {
+.loading-state,
+.empty-state {
+  text-align: center;
+  padding: 3rem;
   color: #6b7280;
-  padding: 0.2rem 0;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.famous-works li:last-child {
-  border-bottom: none;
+  font-size: 1.1rem;
 }
 
 .detail-btn {

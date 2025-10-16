@@ -132,3 +132,65 @@ export async function isFavorite(userId: string, poemId: string) {
   
   return !!data
 }
+
+// 增加用户经验值
+export async function addUserExperience(userId: string, experience: number, action = 'unknown') {
+  const { error } = await supabase.rpc('add_user_experience', {
+    p_user_id: userId,
+    p_experience: experience,
+    p_action: action
+  })
+  
+  if (error) {
+    console.error('增加经验值失败:', error)
+    throw error
+  }
+}
+
+// 获取用户统计信息
+export async function getUserStats(userId: string) {
+  const { data, error } = await supabase
+    .from('v_user_stats')
+    .select('*')
+    .eq('id', userId)
+    .single()
+  
+  if (error) {
+    console.error('获取用户统计失败:', error)
+    return null
+  }
+  
+  return data
+}
+
+// 获取用户浏览历史
+export async function getUserViewHistory(userId: string, limit = 20) {
+  const { data, error } = await supabase
+    .from('view_history')
+    .select(`
+      *,
+      poems (*)
+    `)
+    .eq('user_id', userId)
+    .order('viewed_at', { ascending: false })
+    .limit(limit)
+  
+  if (error) {
+    console.error('获取浏览历史失败:', error)
+    return []
+  }
+  
+  return data || []
+}
+
+// 更新用户最后登录时间
+export async function updateLastLogin(userId: string) {
+  const { error } = await supabase
+    .from('users')
+    .update({ last_login_at: new Date().toISOString() })
+    .eq('id', userId)
+  
+  if (error) {
+    console.error('更新登录时间失败:', error)
+  }
+}

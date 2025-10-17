@@ -111,6 +111,13 @@
             📤 分享
           </button>
         </div>
+
+        <!-- 🌟 用户赏析笔记功能 -->
+        <UserNotes 
+          :poemId="poetry.id" 
+          @showLogin="showLoginPrompt"
+          @noteCreated="handleNoteCreated"
+        />
       </div>
 
       <div v-else class="error-state">
@@ -123,10 +130,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, reactive } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getPoemById, recordPoemView, toggleLike, checkUserLike, type Poem } from '../api/poetry'
 import { getCurrentUser } from '../api/user'
+import UserNotes from '../components/UserNotes.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -204,6 +212,18 @@ const handleLike = async () => {
 // 处理分享
 const handleShare = () => {
   alert('分享功能开发中')
+}
+
+// 显示登录提示
+const showLoginPrompt = () => {
+  alert('请先登录后再写笔记')
+  // TODO: 可以集成登录模态框
+}
+
+// 笔记创建成功回调
+const handleNoteCreated = () => {
+  console.log('笔记创建成功')
+  // 可以增加经验值等奖励
 }
 
 // 检查用户登录状态

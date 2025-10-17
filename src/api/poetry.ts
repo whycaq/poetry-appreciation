@@ -344,3 +344,164 @@ export async function getPoemsByDifficulty(level: number, limit = 20): Promise<P
   
   return data || []
 }
+
+// ============================================
+// 用户赏析笔记相关API
+// ============================================
+
+export interface AppreciationNote {
+  id: string
+  user_id: string
+  poem_id: string
+  note_content: string
+  is_public: boolean
+  likes: number
+  created_at: string
+  updated_at: string
+  username?: string
+  avatar_url?: string
+}
+
+// 创建赏析笔记
+export async function createAppreciationNote(
+  poemId: string,
+  content: string,
+  isPublic = false
+): Promise<AppreciationNote | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    throw new Error('需要登录才能创建笔记')
+  }
+
+  const { data, error } = await supabase
+    .from('user_appreciation_notes')
+    .insert([{
+      user_id: user.id,
+      poem_id: poemId,
+      note_content: content,
+      is_public: isPublic
+    }])
+    .select()
+    .single()
+
+  if (error) {
+    console.error('创建笔记失败:', error)
+    throw error
+  }
+
+  return data
+}
+
+// 获取诗词的公开笔记列表
+export async function getPoemNotes(poemId: string, limit = 20): Promise<AppreciationNote[]> {
+  const { data, error } = await supabase
+    .from('user_appreciation_notes')
+    .select(`
+      *,
+      users!user_appreciation_notes_user_id_fkey (
+        username,
+        avatar_url
+      )
+    `)
+    .eq('poem_id', poemId)
+    .eq('is_public', true)
+    .order('likes', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('获取笔记列表失败:', error)
+    return []
+  }
+
+  // 格式化数据
+  return (data || []).map(item => ({
+    ...item,
+    username: item.users?.username || '匿名用户',
+    avatar_url: item.users?.avatar_url
+  }))
+}
+
+// 获取用户自己的笔记（包括私密笔记）
+export async function getUserNotes(userId: string, poemId?: string): Promise<AppreciationNote[]> {
+  let query = supabase
+    .from('user_appreciation_notes')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (poemId) {
+    query = query.eq('poem_id', poemId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('获取用户笔记失败:', error)
+    return []
+  }
+
+  return data || []
+}
+
+// 更新笔记
+export async function updateAppreciationNote(
+  noteId: string,
+  content: string,
+  isPublic?: boolean
+): Promise<boolean> {
+  const updateData: any = { note_content: content }
+  if (isPublic !== undefined) {
+    updateData.is_public = isPublic
+  }
+
+  const { error } = await supabase
+    .from('user_appreciation_notes')
+    .update(updateData)
+    .eq('id', noteId)
+
+  if (error) {
+    console.error('更新笔记失败:', error)
+    return false
+  }
+
+  return true
+}
+
+// 删除笔记
+export async function deleteAppreciationNote(noteId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('user_appreciation_notes')
+    .delete()
+    .eq('id', noteId)
+
+  if (error) {
+    console.error('删除笔记失败:', error)
+    return false
+  }
+
+  return true
+}
+
+// 点赞笔记
+export async function likeAppreciationNote(noteId: string): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    throw new Error('需要登录才能点赞')
+  }
+
+  // 增加点赞数
+  const { error } = await supabase
+    .from('user_appreciation_notes')
+    .update({ likes: supabase.sql`likes + 1` })
+    .eq('id', noteId)
+
+  if (error) {
+    console.error('点赞笔记失败:', error)
+    return false
+  }
+
+  return true
+}

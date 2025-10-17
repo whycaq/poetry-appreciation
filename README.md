@@ -32,11 +32,13 @@ src/
 ├── api/                          # API接口管理
 │   ├── poetry.ts                 # 诗词相关API（12个函数）
 │   ├── user.ts                   # 用户相关API（9个函数）
+│   ├── ai.ts                     # ⭐ AI助手相关API
 │   └── index.ts                  # API统一导出
 ├── components/                   # 通用组件
 │   ├── NavBar.vue                # 导航栏
 │   ├── UserAuth.vue              # 用户认证
 │   ├── PoetryGame.vue            # 诗词游戏
+│   ├── AIChatAssistant.vue       # ⭐ AI聊天助手
 │   ├── UserLevelCard.vue         # ⭐ 用户成长卡片
 │   ├── DailyRecommendation.vue   # ⭐ 每日推荐
 │   └── StudyCheckIn.vue          # ⭐ 学习打卡
@@ -115,10 +117,17 @@ npm run lint
 - ✅ 浏览历史
 - ✅ 个人统计
 
-### 🎨 AI创作
-- 智能诗歌生成
-- 诗歌风格选择
-- 创作参数调整
+### 🎨 AI创作与助手
+- ✅ **AI聊天助手（悬浮式）** - 已接入DeepSeek AI
+- ✅ **智能诗词赏析** - 真实AI驱动，深度解读
+- ✅ **AI诗词生成** - 根据主题、风格、关键词创作
+- ✅ **AI优化诗词** - 改进语法、韵律、意境
+- ✅ **AI押韵建议** - 智能推荐押韵字
+- ✅ **AI续写诗句** - 保持风格连贯续写
+- ✅ **多种风格支持** - 古典、现代、浪漫、豪放、婉约
+- ✅ **创作参数调整** - 自定义长度、关键词
+- ✅ **对话历史保存** - 本地持久化
+- ✅ **多轮对话上下文** - 智能理解语境
 
 ## 开发规范
 

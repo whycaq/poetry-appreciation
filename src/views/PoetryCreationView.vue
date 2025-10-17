@@ -74,11 +74,27 @@
     </div>
 
     <div class="ai-assistant">
-      <h3>AI创作助手</h3>
+      <h3>🤖 AI创作助手</h3>
+      <p class="ai-desc">让AI帮助你创作和优化诗词</p>
       <div class="assistant-options">
-        <button @click="generateByTheme" class="ai-btn">根据主题生成</button>
-        <button @click="improvePoem" class="ai-btn">优化当前作品</button>
-        <button @click="suggestRhyme" class="ai-btn">押韵建议</button>
+        <button @click="generateByTheme" class="ai-btn" :disabled="aiLoading">
+          {{ aiLoading ? '生成中...' : '📝 根据主题生成' }}
+        </button>
+        <button @click="improvePoem" class="ai-btn" :disabled="aiLoading">
+          {{ aiLoading ? '优化中...' : '✨ 优化当前作品' }}
+        </button>
+        <button @click="suggestRhyme" class="ai-btn" :disabled="aiLoading">
+          {{ aiLoading ? '分析中...' : '🎵 押韵建议' }}
+        </button>
+      </div>
+      
+      <!-- AI结果显示 -->
+      <div v-if="showAIResult" class="ai-result">
+        <div class="ai-result-header">
+          <h4>AI分析结果</h4>
+          <button @click="showAIResult = false" class="close-btn">×</button>
+        </div>
+        <pre class="ai-result-content">{{ aiResult }}</pre>
       </div>
     </div>
   </div>
@@ -91,7 +107,7 @@ const poemData = ref({
   title: '',
   type: 'five-char',
   content: '',
-  themes: []
+  themes: [] as string[]
 })
 
 const themes = ['爱情', '友情', '思乡', '爱国', '自然', '人生', '哲理', '季节', '节日']
@@ -115,19 +131,97 @@ const publishPoem = () => {
   // 这里可以添加发布作品的逻辑
 }
 
-const generateByTheme = () => {
-  console.log('根据主题生成诗词')
-  // AI生成诗词的逻辑
+// AI功能状态
+const aiLoading = ref(false)
+const showAIResult = ref(false)
+const aiResult = ref('')
+
+// 根据主题生成诗词
+const generateByTheme = async () => {
+  if (!poemData.value.themes.length) {
+    alert('请先选择至少一个主题标签')
+    return
+  }
+  
+  aiLoading.value = true
+  try {
+    const { generatePoem } = await import('../api/ai')
+    const theme = poemData.value.themes.join('、')
+    const result = await generatePoem(theme, 'classical', [], 8)
+    
+    // 将生成的内容填入表单
+    if (!poemData.value.title) {
+      poemData.value.title = result.title
+    }
+    poemData.value.content = result.content
+    
+    alert('AI生成成功！已填入编辑区')
+  } catch (error: any) {
+    console.error('AI生成失败:', error)
+    alert('生成失败：' + (error.message || '请稍后重试'))
+  } finally {
+    aiLoading.value = false
+  }
 }
 
-const improvePoem = () => {
-  console.log('优化当前作品')
-  // AI优化诗词的逻辑
+// 优化当前作品
+const improvePoem = async () => {
+  if (!poemData.value.content.trim()) {
+    alert('请先输入诗词内容')
+    return
+  }
+  
+  aiLoading.value = true
+  try {
+    const { improvePoem: improvePoemAPI } = await import('../api/ai')
+    const result = await improvePoemAPI(poemData.value.content, 'overall')
+    
+    // 显示优化结果
+    aiResult.value = `优化后的诗词：\n\n${result.improved}\n\n改进建议：\n${result.suggestions}`
+    showAIResult.value = true
+    
+    // 询问是否替换
+    if (confirm('是否用优化后的版本替换当前内容？')) {
+      poemData.value.content = result.improved
+    }
+  } catch (error: any) {
+    console.error('AI优化失败:', error)
+    alert('优化失败：' + (error.message || '请稍后重试'))
+  } finally {
+    aiLoading.value = false
+  }
 }
 
-const suggestRhyme = () => {
-  console.log('提供押韵建议')
-  // AI押韵建议的逻辑
+// 提供押韵建议
+const suggestRhyme = async () => {
+  if (!poemData.value.content.trim()) {
+    alert('请先输入诗词内容')
+    return
+  }
+  
+  // 获取最后一句的最后一个字
+  const lines = poemData.value.content.trim().split('\n')
+  const lastLine = lines[lines.length - 1]
+  const lastChar = lastLine.trim().slice(-1)
+  
+  if (!lastChar) {
+    alert('无法获取押韵字')
+    return
+  }
+  
+  aiLoading.value = true
+  try {
+    const { getRhymeSuggestions } = await import('../api/ai')
+    const suggestions = await getRhymeSuggestions(lastLine, lastChar)
+    
+    aiResult.value = `押韵建议（与"${lastChar}"押韵）：\n\n${suggestions.join('\n')}`
+    showAIResult.value = true
+  } catch (error: any) {
+    console.error('获取押韵建议失败:', error)
+    alert('获取建议失败：' + (error.message || '请稍后重试'))
+  } finally {
+    aiLoading.value = false
+  }
 }
 </script>
 
@@ -283,34 +377,97 @@ const suggestRhyme = () => {
 }
 
 .ai-assistant {
-  background: #f0f9ff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 2rem;
-  border-radius: 8px;
-  text-align: center;
+  border-radius: 12px;
+  color: white;
 }
 
 .ai-assistant h3 {
-  margin-bottom: 1rem;
-  color: #0369a1;
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+}
+
+.ai-desc {
+  margin-bottom: 1.5rem;
+  opacity: 0.9;
+  font-size: 0.95rem;
 }
 
 .assistant-options {
   display: flex;
   gap: 1rem;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .ai-btn {
   padding: 0.75rem 1.5rem;
-  background-color: #0ea5e9;
+  background-color: rgba(255, 255, 255, 0.2);
   color: white;
-  border: none;
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
+  font-size: 0.95rem;
+  backdrop-filter: blur(10px);
 }
 
-.ai-btn:hover {
-  background-color: #0284c7;
+.ai-btn:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.ai-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ai-result {
+  margin-top: 1.5rem;
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  color: #1f2937;
+}
+
+.ai-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.ai-result-header h4 {
+  margin: 0;
+  color: #1f2937;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.close-btn:hover {
+  background: #f3f4f6;
+}
+
+.ai-result-content {
+  white-space: pre-wrap;
+  line-height: 1.8;
+  color: #374151;
+  margin: 0;
+  font-family: inherit;
 }
 </style>

@@ -151,6 +151,9 @@
       <PoetryGame />
     </div>
   </div>
+
+  <!-- AI聊天助手 -->
+  <AIChatAssistant />
 </template>
 
 <script lang="ts" setup>
@@ -163,6 +166,7 @@ import 'swiper/css/pagination';
 import { getPopularPoems, likePoem, getCategories, type Poem } from '../api/poetry';
 import PoetryGame from '../components/PoetryGame.vue';
 import DailyRecommendation from '../components/DailyRecommendation.vue';
+import AIChatAssistant from '../components/AIChatAssistant.vue';
 
 const router = useRouter();
 const swiperModules = [Pagination, Autoplay];

@@ -208,20 +208,27 @@ const handleGenerate = async () => {
     await formRef.value.validate()
     generating.value = true
     
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // 调用真实的AI API生成诗词
+    const { generatePoem } = await import('@/api/ai')
+    const result = await generatePoem(
+      createForm.theme,
+      createForm.style,
+      createForm.keywords,
+      createForm.length
+    )
     
-    // 模拟生成结果
+    // 设置生成结果
     generatedPoetry.value = {
-      title: `${createForm.theme}·AI创作`,
-      content: `春风拂面花开放，\n万物复苏生机旺。\n鸟儿枝头唱欢歌，\n大地披上新绿装。\n阳光温暖照人间，\n心中充满希望光。\n美好时光莫辜负，\n珍惜当下乐无边。`,
+      title: result.title,
+      content: result.content,
       style: createForm.style,
       createdAt: new Date().toISOString()
     }
     
     ElMessage.success('诗歌生成成功！')
-  } catch (error) {
-    ElMessage.error('请完善表单信息')
+  } catch (error: any) {
+    console.error('生成失败:', error)
+    ElMessage.error(error.message || '诗歌生成失败，请稍后重试')
   } finally {
     generating.value = false
   }

@@ -1,0 +1,29 @@
+# Netlify配置文件
+[build]
+  # 构建命令
+  command = "npm run build"
+  # 发布目录
+  publish = "dist"
+  
+[build.environment]
+  # Node版本
+  NODE_VERSION = "18"
+
+# 处理Vue Router的单页应用路由
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# 开发预览配置
+[context.deploy-preview]
+  command = "npm run build"
+
+# 分支部署配置
+[context.branch-deploy]
+  command = "npm run build"
+
+# 生产环境配置
+[context.production]
+  command = "npm run build"
+
